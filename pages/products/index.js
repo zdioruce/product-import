@@ -1,8 +1,10 @@
-import { Page, Frame } from "@shopify/polaris";
+import { Heading, Page, Button, TextField, Spinner, Toast, Frame } from "@shopify/polaris";
 import React, { useState, useCallback } from "react"
 import styles from './styles.module.scss'
 
-const Index = () => { 
+const Products = () => { 
+
+  
 
   return(
     <div className={styles.container}>
@@ -15,4 +17,4 @@ const Index = () => {
   );
 }
 
-export default Index;
+export default Products;

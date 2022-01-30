@@ -1,0 +1,54 @@
+.container {
+  color: rgb(255, 255, 255);
+  display: flex;
+  -webkit-box-align: center;
+  align-items: center;
+  padding: 13px;
+  position: relative;
+  cursor: pointer;
+  transition: all 0.3s ease 0s;
+  text-decoration: none;
+  
+  svg {
+    margin: 0px 10px;
+    min-width: 24px;
+  }
+
+  span {
+    white-space: nowrap;
+    width: auto;
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+.container::before{
+  content: "";
+  position: absolute;
+  transition: all 0.3s ease 0s;
+  left: 0px;
+  top: 0px;
+  height: 100%;
+  width: 0px;
+  border-top-right-radius: 3px;
+  border-bottom-right-radius: 3px;
+  background: rgb(228, 158, 76);
+}
+
+.active{
+  color: rgb(228, 158, 76);
+  padding-left: 21px;
+}
+
+.active::before{
+  width: 8px
+}
+
+.container:hover{
+  color: rgb(228, 158, 76);
+  padding-left: 21px;
+}
+
+.container:hover::before{
+  width: 8px
+}

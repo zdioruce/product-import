@@ -16,6 +16,19 @@ const app = next({
 });
 const handle = app.getRequestHandler();
 
+var mysql = require('mysql');
+
+var con = mysql.createConnection({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USERNAME,
+  password: process.env.DB_PASSWORD
+});
+
+con.connect(function(err) {
+  if (err) throw err;
+  console.log("DB Connected!");
+});
+
 Shopify.Context.initialize({
   API_KEY: process.env.SHOPIFY_API_KEY,
   API_SECRET_KEY: process.env.SHOPIFY_API_SECRET,
@@ -100,65 +113,54 @@ app.prepare().then(async () => {
       const productApiResponse = await productApi.json()
       const productData = productApiResponse.products[0]
 
-      const variantApi = await fetch('https://api.keepa.com/product?key=69i9bc60t6ifrbvnmld3gi6nfrjega1l8lqdhib1t45f05cbnm2qibqoogf12sm6&domain=1&asin=' + productData.variationCSV)
-      const variantApiResponse = await variantApi.json()
       let variants = []
       let tags = []
       let colors = []
       let size = []
-      let productImages = []
-      let variantImages = []
+      let images = []
 
-      variantApiResponse.products.forEach(variant => {
-                
-        variantImages.push(productImages.length)
+      productData.imagesCSV.split(",").forEach(image => {
+        images.push({"src":"https://images-na.ssl-images-amazon.com/images/I/" + image})
+      }) 
 
-        variant.imagesCSV.split(",").forEach(image => {
-          productImages.push({"src":"https://images-na.ssl-images-amazon.com/images/I/" + image})
-        }) 
+      productData.categoryTree.forEach(category => {
+        if(!tags.includes(category.name))
+          tags.push(category.name)
+      });
 
-        variant.categoryTree.forEach(category => {
-          if(!tags.includes(category.name))
-            tags.push(category.name)
-        });
+      if(productData.color && !colors.includes(productData.color))
+        colors.push(productData.color)
 
-        if(variant.color && !colors.includes(variant.color))
-          colors.push(variant.color)
+      if(productData.size && !size.includes(productData.size))
+        size.push(productData.size)
 
-        if(variant.size && !size.includes(variant.size))
-          size.push(variant.size)
+      if(productData.color && productData.size){
+        variants.push(
+          {
+            "sku": productData.asin,
+            "option1": productData.color, 
+            "option2": productData.size,
+            "barcode": productData.eanList.length > 0 ? productData.eanList[0]: ""
+          }
+        )  
+      }else if(productData.color){
+        variants.push(
+          {
+            "sku": productData.asin,
+            "option1": productData.color, 
+            "barcode": productData.eanList.length > 0 ? productData.eanList[0]: ""
+          }
+        )  
+      }else {
+        variants.push(
+          {
+            "sku": productData.asin,
+            "option1": productData.size,
+            "barcode": productData.eanList.length > 0 ? productData.eanList[0]: ""
+          }
+        )  
+      }    
 
-        if(variant.color && variant.size){
-          variants.push(
-            {
-              "sku": variant.asin,
-              "title": variant.title,
-              "option1": variant.color, 
-              "option2": variant.size,
-              "barcode": variant.eanList.length > 0 ? variant.eanList[0]: ""
-            }
-          )  
-        }else if(variant.color){
-          variants.push(
-            {
-              "sku": variant.asin,
-              "title": variant.title,
-              "option1": variant.color, 
-              "barcode": variant.eanList.length > 0 ? variant.eanList[0]: ""
-            }
-          )  
-        }else {
-          variants.push(
-            {
-              "sku": variant.asin,
-              "title": variant.title,
-              "option1": variant.size,
-              "barcode": variant.eanList.length > 0 ? variant.eanList[0]: ""
-            }
-          )  
-        }          
-      })
-            
       tags.push(productData.productGroup)
       
       let options = []
@@ -177,55 +179,61 @@ app.prepare().then(async () => {
         })
       }
 
-      let body = {
-        "product":
-        {
-          "title": productData.title,
-          "body_html": productData.description,
-          "vendor": productData.brand,
-          "product_type": productData.type,
-          "tags": tags,
-          "images": productImages,
-          "status": "draft",
-          "options" : options,
-          "variants": variants
-        }
-      };
+      // let body = {
+      //   "product":
+      //   {
+      //     "title": productData.title,
+      //     "body_html": productData.description,
+      //     "vendor": productData.brand,
+      //     "product_type": productData.type,
+      //     "tags": tags,
+      //     "images": images,
+      //     "status": "draft",
+      //     "options" : options,
+      //     "variants": variants
+      //   }
+      // };
       
-      const apiResponse = await fetch(
-        `https://${process.env.SHOP}/admin/api/2021-04/products.json`,
-        {
-          method: 'post',
-          headers: {
-            "X-Shopify-Access-Token": shopifyAccessToken,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify(body)
-        }
-      );
-      const { product } = await apiResponse.json();
+      // var sql = "INSERT INTO products (title, tags, brand, description, images, status) VALUES ('"
+      // + productData.title
+      // + "','" + tags
+      // + "','" + productData.brand
+      // + "','" + productData.description
+      // + "','" + images
+      // + "','0')";
+      var sql = "INSERT INTO products (title) VALUES ('"
+      + productData.title + "')";
+      console.log("sql =", sql)
+      if(con) {
+        // con.query(sql, function (err, result) {
+        //   //if (err) throw err;
+        //   console.log("err =", err);
+        //   console.log("result =", result);
+        // });  
 
-      product.variants.forEach(async (variant, index) => {
-        await fetch(
-          `https://${process.env.SHOP}/admin/api/2021-04/variants/${variant.id}.json`,
-          {
-            method: 'put',
-            headers: {
-              "X-Shopify-Access-Token": shopifyAccessToken,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              "variant":{"id":variant.id, "image_id":product.images[variantImages[index]].id}
-            })
-          }
-        );
-      })
+        ctx.body = JSON.stringify({
+          status: 1
+        });
+      } else {
+        ctx.body = JSON.stringify({
+          status: 0
+        });
+      }
 
-      ctx.body = JSON.stringify({
-        body,
-        variantImages,
-        product
-      });
+      // const apiResponse = await fetch(
+      //   `https://${process.env.SHOP}/admin/api/2021-04/products.json`,
+      //   {
+      //     method: 'post',
+      //     headers: {
+      //       "X-Shopify-Access-Token": shopifyAccessToken,
+      //       "Content-Type": "application/json"
+      //     },
+      //     body: JSON.stringify(body)
+      //   }
+      // );
+      // const { product } = await apiResponse.json();
+
+      
       ctx.res.statusCode = 200;
     } catch (err) {
       console.error(err);
